@@ -5,19 +5,19 @@ on:
     inputs:
       app_name:
         description: "Custom App Name"
-        required: true
+        required: false
         default: "Varnika Jewellers"
       icon_url:
-        description: "URL of custom app icon (.png)"
-        required: true
-        default: "https://example.com/icon.png"
+        description: "Custom Icon URL"
+        required: false
+        default: ""
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up JDK
@@ -26,20 +26,14 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Download custom icon
-        run: |
-          mkdir -p app/src/main/res/mipmap-anydpi-v26/
-          curl -L "${{ github.event.inputs.icon_url }}" -o app/src/main/res/mipmap-anydpi-v26/ic_launcher.png
+      - name: Give permission to Gradle wrapper
+        run: chmod +x ./gradlew
 
-      - name: Update app name
-        run: |
-          sed -i "s|<string name=\"app_name\">.*</string>|<string name=\"app_name\">${{ github.event.inputs.app_name }}</string>|" app/src/main/res/values/strings.xml
-
-      - name: Build with Gradle
+      - name: Build debug APK
         run: ./gradlew assembleDebug
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Custom-${{ github.event.inputs.app_name }}
+          name: ${{ github.event.inputs.app_name }}-debug
           path: app/build/outputs/apk/debug/app-debug.apk

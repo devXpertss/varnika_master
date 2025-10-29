@@ -1,16 +1,20 @@
-name: Android CI - Build APK
+name: Build Custom APK
 
 on:
   workflow_dispatch:
     inputs:
       app_name:
-        description: "Custom App Name"
+        description: "App name (e.g. Varnika Jewellers)"
         required: true
-        default: "Varnika Jewellers"
+        default: "MyApp"
       icon_url:
-        description: "Custom Icon URL (PNG/JPG)"
-        required: false
+        description: "Icon URL (direct image link)"
+        required: true
         default: ""
+      package_name:
+        description: "Package name (e.g. com.example.varnika)"
+        required: true
+        default: "com.example.dynamicapp"
 
 jobs:
   build:
@@ -18,15 +22,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v3
         with:
           distribution: "temurin"
           java-version: "17"
 
-      - name: Give permission to Gradle wrapper
+      - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
       - name: Customize app name and icon
@@ -36,19 +40,30 @@ jobs:
           
           if [ ! -z "${{ github.event.inputs.icon_url }}" ]; then
             echo "Downloading custom icon..."
+            # Remove any existing webp icons to avoid duplicates
+            find app/src/main/res -type f -name "ic_launcher.webp" -delete
+
             mkdir -p app/src/main/res/mipmap-xxxhdpi
             curl -L "${{ github.event.inputs.icon_url }}" -o app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-            # Copy same icon to all mipmap folders
+
+            # Copy icon to all mipmap folders
             for d in app/src/main/res/mipmap-*dpi; do
               cp app/src/main/res/mipmap-xxxhdpi/ic_launcher.png "$d/ic_launcher.png" || true
             done
           fi
 
-      - name: Build debug APK
+      - name: Change package name
+        run: |
+          echo "Changing package name to: ${{ github.event.inputs.package_name }}"
+          old_package=$(grep "applicationId" app/build.gradle | head -1 | awk '{print $2}' | tr -d '"')
+          sed -i "s/$old_package/${{ github.event.inputs.package_name }}/g" app/build.gradle
+          find app/src/main/java -type f -name "*.kt" -o -name "*.java" | xargs sed -i "s/$old_package/${{ github.event.inputs.package_name }}/g" || true
+
+      - name: Build APK
         run: ./gradlew assembleDebug
 
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload APK
+        uses: actions/upload-artifact@v3
         with:
-          name: ${{ github.event.inputs.app_name }}-debug
+          name: custom-apk
           path: app/build/outputs/apk/debug/app-debug.apk

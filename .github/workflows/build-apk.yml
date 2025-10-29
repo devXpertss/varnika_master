@@ -5,10 +5,10 @@ on:
     inputs:
       app_name:
         description: "Custom App Name"
-        required: false
+        required: true
         default: "Varnika Jewellers"
       icon_url:
-        description: "Custom Icon URL"
+        description: "Custom Icon URL (PNG/JPG)"
         required: false
         default: ""
 
@@ -28,6 +28,21 @@ jobs:
 
       - name: Give permission to Gradle wrapper
         run: chmod +x ./gradlew
+
+      - name: Customize app name and icon
+        run: |
+          echo "Changing app name to: ${{ github.event.inputs.app_name }}"
+          sed -i "s#<string name=\"app_name\">.*</string>#<string name=\"app_name\">${{ github.event.inputs.app_name }}</string>#" app/src/main/res/values/strings.xml
+          
+          if [ ! -z "${{ github.event.inputs.icon_url }}" ]; then
+            echo "Downloading custom icon..."
+            mkdir -p app/src/main/res/mipmap-xxxhdpi
+            curl -L "${{ github.event.inputs.icon_url }}" -o app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+            # Copy same icon to all mipmap folders
+            for d in app/src/main/res/mipmap-*dpi; do
+              cp app/src/main/res/mipmap-xxxhdpi/ic_launcher.png "$d/ic_launcher.png" || true
+            done
+          fi
 
       - name: Build debug APK
         run: ./gradlew assembleDebug
